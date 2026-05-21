@@ -1,341 +1,331 @@
-import React,{useState,useEffect} from 'react'; 
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const Content = () =>{
+const DB_URL = 'https://todo-28281-default-rtdb.firebaseio.com';
 
-    const [value,setvalue] = useState('')
-    const [result,setresult] = useState([])
-    const [edit,edititem] = useState('')
-    const [changevalue,changedvalue] = useState('')
-    
-    
-    function addvalue(e){
-        setvalue(e.target.value)
+const Content = () => {
+    const [value, setvalue] = useState('');
+    const [result, setresult] = useState([]);
+    const [edit, edititem] = useState('');
+    const [changevalue, changedvalue] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    function addvalue(e) {
+        setvalue(e.target.value);
     }
 
-    function submitvalue(){
+    function submitvalue() {
+        if (!value.trim()) return;
         const options = {
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             }
         };
-        
-    
-    
-        axios.post(`https://todo-28281-default-rtdb.firebaseio.com/todo.json`,value,options).then((response)=>{
-            console.log("success")
+        axios.post(`${DB_URL}/todo.json`, JSON.stringify(value), options).then(() => {
+            setvalue('');
             fetchvalue();
-            
-        })
+        });
     }
 
+    function handleKeyDown(e) {
+        if (e.key === 'Enter') submitvalue();
+    }
 
     function fetchvalue() {
-        axios.get(`https://todo-28281-default-rtdb.firebaseio.com/todo.json`)
+        setLoading(true);
+        axios.get(`${DB_URL}/todo.json`)
             .then((response) => {
-                console.log(response.data)
-                var arr = []
-                const fetchedData =  response.data
-                for(const key in fetchedData){
-                arr.push({ key:key, value: fetchedData[key] });
+                const arr = [];
+                const fetchedData = response.data;
+                for (const key in fetchedData) {
+                    arr.push({ key: key, value: fetchedData[key] });
                 }
-                setresult(arr)
-                // console.log(result)
+                setresult(arr);
+                setLoading(false);
             })
             .catch((error) => {
-                console.error("Error fetching data:", error);
+                console.error('Error fetching data:', error);
+                setLoading(false);
             });
     }
 
-
-    function deletevalue(event,key){
-        event.preventDefault()
-        axios.delete(`https://todo-28281-default-rtdb.firebaseio.com/todo/${key}.json`).then((response)=>{
-            console.log("delete successfully")
-            const updatedResult = result.filter(value => value.key !== key);
-            setresult(updatedResult);
-        })
-    }
-
-    function editvalue(event,key){
+    function deletevalue(event, key) {
         event.preventDefault();
-        let itemvalue = result.find(item => item.key === key)
-        edititem(itemvalue)
-        changedvalue(itemvalue.value)
-        setvalue(itemvalue.value)
-        console.log(result)
+        axios.delete(`${DB_URL}/todo/${key}.json`).then(() => {
+            const updatedResult = result.filter((value) => value.key !== key);
+            setresult(updatedResult);
+        });
     }
 
-    function savechange(e){
-        changedvalue(e.target.value)
-        
+    function editvalue(event, key) {
+        event.preventDefault();
+        const itemvalue = result.find((item) => item.key === key);
+        edititem(itemvalue);
+        changedvalue(itemvalue.value);
+    }
+
+    function cancelEdit(event) {
+        event.preventDefault();
+        edititem('');
+        changedvalue('');
+    }
+
+    function savechange(e) {
+        changedvalue(e.target.value);
     }
 
     function savevalue(event, key) {
         event.preventDefault();
-    
-        
-        axios.put(`https://todo-28281-default-rtdb.firebaseio.com/todo/${key}.json`, JSON.stringify(changevalue))
+        axios.put(`${DB_URL}/todo/${key}.json`, JSON.stringify(changevalue))
             .then(() => {
-                
                 const updatedResult = result.map((item) =>
                     item.key === key ? { ...item, value: changevalue } : item
                 );
                 setresult(updatedResult);
-                edititem(''); 
-                changedvalue(''); 
+                edititem('');
+                changedvalue('');
             })
             .catch((error) => {
-                console.error("Error updating value:", error);
+                console.error('Error updating value:', error);
             });
     }
-    
-    useEffect(()=>{
-        fetchvalue()
-    },[])
 
-    
-    return(
-        <>
-        <h1 className='text-center mt-5'>TO DO APP</h1>
-        <div className='container'>
-        <div className="mb-3 d-flex justify-content-center mt-3">
-            <input type="text" className="form-control w-50 ml-3" id="basicInput" value={value} onChange={addvalue} placeholder="Enter Task" />
-            <input type="button" className="btn btn-success ml-1" value="Add" onClick={submitvalue}/>
-        </div>
-        <div className=''>
-            <table className='table table-bordered table-hover table-striped'>
-                <thead>
-                    <tr>
-                        <th>Si NO.</th>
-                        <th>Task.</th>
-                        <th>Action.</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {result.map((value,index)=>{
-                    return  <tr key={index}>
-                    <th>{index}</th>
-                    {edit.key === value.key?(
-                        <td><input type="text" className="form-control w-50" id="basicInput" value={changevalue} onChange={savechange}/></td>
-                    ):(
-                        <th>{value.value}</th>
+    useEffect(() => {
+        fetchvalue();
+    }, []);
+
+    return (
+        <div className="todo-wrap">
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600&display=swap');
+
+                .todo-wrap {
+                    min-height: 100vh;
+                    background:
+                        radial-gradient(circle at 15% 20%, rgba(255, 138, 76, 0.12), transparent 40%),
+                        radial-gradient(circle at 85% 80%, rgba(108, 99, 255, 0.12), transparent 40%),
+                        #14121a;
+                    font-family: 'Outfit', sans-serif;
+                    padding: 48px 20px 80px;
+                    color: #ece9f1;
+                    box-sizing: border-box;
+                }
+                .todo-card {
+                    max-width: 640px;
+                    margin: 0 auto;
+                    background: rgba(31, 28, 40, 0.7);
+                    backdrop-filter: blur(20px);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 24px;
+                    padding: 40px 36px;
+                    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+                }
+                .todo-header { margin-bottom: 32px; }
+                .todo-eyebrow {
+                    font-size: 12px;
+                    letter-spacing: 0.32em;
+                    text-transform: uppercase;
+                    color: #ff8a4c;
+                    font-weight: 500;
+                    margin: 0 0 6px;
+                }
+                .todo-title {
+                    font-family: 'Fraunces', serif;
+                    font-size: 42px;
+                    font-weight: 600;
+                    line-height: 1;
+                    margin: 0;
+                    color: #fff;
+                }
+                .todo-count {
+                    font-size: 14px;
+                    color: #9a96a8;
+                    margin-top: 10px;
+                }
+                .todo-input-row {
+                    display: flex;
+                    gap: 10px;
+                    margin-bottom: 28px;
+                }
+                .todo-input {
+                    flex: 1;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.12);
+                    border-radius: 14px;
+                    padding: 15px 18px;
+                    font-size: 15px;
+                    font-family: 'Outfit', sans-serif;
+                    color: #fff;
+                    outline: none;
+                    transition: border 0.2s, background 0.2s;
+                }
+                .todo-input::placeholder { color: #76728a; }
+                .todo-input:focus {
+                    border-color: #ff8a4c;
+                    background: rgba(255, 255, 255, 0.08);
+                }
+                .btn {
+                    border: none;
+                    border-radius: 14px;
+                    padding: 0 22px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    font-family: 'Outfit', sans-serif;
+                    cursor: pointer;
+                    transition: transform 0.15s, filter 0.2s, opacity 0.2s;
+                    white-space: nowrap;
+                }
+                .btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+                .btn:active { transform: translateY(0); }
+                .btn-add {
+                    background: linear-gradient(135deg, #ff8a4c, #ff5e7e);
+                    color: #fff;
+                    box-shadow: 0 8px 20px rgba(255, 94, 126, 0.3);
+                }
+                .todo-list { display: flex; flex-direction: column; gap: 10px; }
+                .todo-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 14px;
+                    background: rgba(255, 255, 255, 0.04);
+                    border: 1px solid rgba(255, 255, 255, 0.07);
+                    border-radius: 16px;
+                    padding: 14px 16px;
+                    transition: background 0.2s, border 0.2s, transform 0.2s;
+                    animation: slideIn 0.35s ease both;
+                }
+                .todo-item:hover {
+                    background: rgba(255, 255, 255, 0.07);
+                    border-color: rgba(255, 138, 76, 0.4);
+                }
+                @keyframes slideIn {
+                    from { opacity: 0; transform: translateY(8px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .todo-num {
+                    width: 30px;
+                    height: 30px;
+                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: rgba(255, 138, 76, 0.15);
+                    color: #ff8a4c;
+                    border-radius: 9px;
+                    font-size: 13px;
+                    font-weight: 600;
+                }
+                .todo-text { flex: 1; font-size: 15px; color: #ece9f1; word-break: break-word; }
+                .todo-edit-input {
+                    flex: 1;
+                    background: rgba(0, 0, 0, 0.25);
+                    border: 1px solid #ff8a4c;
+                    border-radius: 10px;
+                    padding: 9px 12px;
+                    font-size: 15px;
+                    font-family: 'Outfit', sans-serif;
+                    color: #fff;
+                    outline: none;
+                }
+                .todo-actions { display: flex; gap: 8px; flex-shrink: 0; }
+                .icon-btn {
+                    border: none;
+                    border-radius: 10px;
+                    width: 38px;
+                    height: 38px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: transform 0.15s, filter 0.2s;
+                    color: #fff;
+                }
+                .icon-btn:hover { transform: translateY(-2px); filter: brightness(1.12); }
+                .icon-btn svg { width: 17px; height: 17px; }
+                .ib-edit { background: rgba(108, 99, 255, 0.22); color: #b3aeff; }
+                .ib-save { background: linear-gradient(135deg, #2dd4a0, #1faf86); }
+                .ib-cancel { background: rgba(255, 255, 255, 0.1); color: #c9c5d6; }
+                .ib-delete { background: rgba(255, 94, 126, 0.18); color: #ff7a93; }
+                .empty {
+                    text-align: center;
+                    padding: 48px 0;
+                    color: #76728a;
+                }
+                .empty-emoji { font-size: 38px; margin-bottom: 8px; }
+                .loading { text-align: center; padding: 40px 0; color: #9a96a8; }
+            `}</style>
+
+            <div className="todo-card">
+                <div className="todo-header">
+                    <p className="todo-eyebrow">Stay Organized</p>
+                    <h1 className="todo-title">My Tasks</h1>
+                    <p className="todo-count">
+                        {result.length === 0 ? 'No tasks yet' : `${result.length} task${result.length > 1 ? 's' : ''} to go`}
+                    </p>
+                </div>
+
+                <div className="todo-input-row">
+                    <input
+                        type="text"
+                        className="todo-input"
+                        value={value}
+                        onChange={addvalue}
+                        onKeyDown={handleKeyDown}
+                        placeholder="What needs to be done?"
+                    />
+                    <button className="btn btn-add" onClick={submitvalue}>Add Task</button>
+                </div>
+
+                <div className="todo-list">
+                    {loading ? (
+                        <div className="loading">Loading your tasks…</div>
+                    ) : result.length === 0 ? (
+                        <div className="empty">
+                            <div className="empty-emoji">🌱</div>
+                            <div>Your list is empty. Add your first task above!</div>
+                        </div>
+                    ) : (
+                        result.map((item, index) => (
+                            <div className="todo-item" key={item.key}>
+                                <span className="todo-num">{index + 1}</span>
+                                {edit.key === item.key ? (
+                                    <input
+                                        type="text"
+                                        className="todo-edit-input"
+                                        value={changevalue}
+                                        onChange={savechange}
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <span className="todo-text">{item.value}</span>
+                                )}
+                                <div className="todo-actions">
+                                    {edit.key === item.key ? (
+                                        <>
+                                            <button className="icon-btn ib-save" onClick={(e) => savevalue(e, item.key)} title="Save">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                            </button>
+                                            <button className="icon-btn ib-cancel" onClick={cancelEdit} title="Cancel">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button className="icon-btn ib-edit" onClick={(e) => editvalue(e, item.key)} title="Edit">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                        </button>
+                                    )}
+                                    <button className="icon-btn ib-delete" onClick={(e) => deletevalue(e, item.key)} title="Delete">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        ))
                     )}
-                    <th>
-                        <form>
-                            {edit.key === value.key?(
-                                <input type='submit' className='btn btn-success m-2' value="save" onClick={(event)=>savevalue(event,value.key)} />
-                            ):(
-                                <input type='submit' className='btn btn-warning m-2' value="edit" onClick={(event)=>editvalue(event,value.key)} />
-                            )}
-                            <input type='submit' className='btn btn-danger' value="Delete"  onClick={(event) => deletevalue(event,value.key)}/>
-                        </form>
-                    </th>
-                </tr>   
-                   })}
-                </tbody>
-            </table>
+                </div>
+            </div>
         </div>
-        </div>
-        </>
-    )
-}
-
-
+    );
+};
 
 export default Content;
-
-
-
-
-
-
-
-
-// import React,{useState,useEffect} from 'react'; 
-// import axios from 'axios';
-
-// const Content = () =>{
-
-//     const [value,setvalue] = useState('')
-//     const [result,setresult] = useState([])
-//     const [edit,edititem] = useState('')
-//     const [changevalue,changedvalue] = useState('')
-    
-//     function addvalue(e){
-//         setvalue(e.target.value)
-//     }
-
-//     function submitvalue() {
-//         const options = {
-//             headers: {
-//                 'Accept': 'application/json',
-//                 'Content-Type': 'application/json'
-//             }
-//         };
-    
-//         const payload = { value }; // Wrap the value in an object
-    
-//         axios.post(`https://todo-8a597-default-rtdb.firebaseio.com/todo.json`, payload, options)
-//             .then((response) => {
-//                 console.log("success");
-//                 setvalue(''); // Clear input field after adding
-//                 fetchvalue(); // Refresh the list
-//             })
-//             .catch((error) => {
-//                 console.error("Error adding value:", error);
-//             });
-//     }
-//     function fetchvalue() {
-//         axios.get(`https://todo-8a597-default-rtdb.firebaseio.com/todo.json`)
-//             .then((response) => {
-//                 const fetchedData = response.data;
-//                 console.log(fetchedData)
-//                 // Handle the case where fetchedData is null
-//                 if (!fetchedData) {
-//                     setresult([]); // Set result as empty array if no data
-//                     return;
-//                 }
-    
-//                 const arr = Object.keys(fetchedData).map(key => ({
-//                     key,
-//                     value: fetchedData[key].value, // Access `value` field correctly
-//                 }));
-//                 console.log(arr)
-//                 setresult(arr);
-//             })
-//             .catch((error) => {
-//                 console.error("Error fetching data:", error);
-//             });
-//     }
-    
-//     function deletevalue(event,key){
-//         event.preventDefault()
-//         axios.delete(`https://todo-8a597-default-rtdb.firebaseio.com/todo/${key}.json`).then((response)=>{
-//             console.log("delete successfully")
-//             const updatedResult = result.filter(value => value.key !== key);
-//             setresult(updatedResult);
-//         })
-//     }
-
-//     function editvalue(event, key) {
-//         event.preventDefault();
-//         const itemvalue = result.find(item => item.key === key);
-//         if (itemvalue) {
-//             edititem(itemvalue); // Store the item being edited
-//             changedvalue(itemvalue.value); // Set the current value for editing
-//         }
-//     }
-    
-    
-
-  
-
-//     function savevalue(event, key) {
-//         event.preventDefault();
-    
-//         const payload = { value: changevalue }; // Prepare updated value as object
-    
-//         axios.put(`https://todo-8a597-default-rtdb.firebaseio.com/todo/${key}.json`, payload)
-//             .then(() => {
-//                 const updatedResult = result.map((item) =>
-//                     item.key === key ? { ...item, value: changevalue } : item
-//                 );
-//                 setresult(updatedResult);
-//                 edititem(''); // Clear the edit state
-//             })
-//             .catch((error) => {
-//                 console.error("Error updating value:", error);
-//             });
-//     }
-    
-
-
-//     useEffect(()=>{
-//         fetchvalue()
-//     },[])
-
-  
-    
-    
-
-
- 
-// return(
-//     <>
-//     <h1 className='text-center mt-5'>TO DO APP</h1>
-//     <div className='container'>
-//     <div className="mb-3 d-flex justify-content-center mt-3">
-//         <input type="text" className="form-control w-50" id="basicInput" value={value} onChange={addvalue} placeholder="Enter Task" />
-//         <input type="button" className="btn btn-success ml-1" value="Add" onClick={submitvalue}/>
-//     </div>
-//     <div className=''>
-//         <table className='table table-bordered table-hover table-striped'>
-//             <thead>
-//                 <tr>
-//                     <th>Si NO.</th>
-//                     <th>Task.</th>
-//                     <th>Action.</th>
-//                 </tr>
-//             </thead>
-//             <tbody>
-//     {result.map((res, index) => (
-//         <tr key={res.key}> {/* Use unique key from Firebase */}
-//             <th>{index + 1}</th>
-//             {edit.key === res.key ? (
-//                 <td>
-//                     <input
-//                         type="text"
-//                         className="form-control w-50"
-//                         value={changevalue}
-//                         onChange={(e) => changedvalue(e.target.value)}
-//                     />
-//                 </td>
-//             ) : (
-//                 <td>{res.value}</td>
-//             )}
-//             <td>
-//                 <form>
-//                     {edit.key === res.key ? (
-//                         <input
-//                             type="submit"
-//                             className="btn btn-success m-2"
-//                             value="Save"
-//                             onClick={(event) => savevalue(event, res.key)}
-//                         />
-//                     ) : (
-//                         <input
-//                             type="submit"
-//                             className="btn btn-warning m-2"
-//                             value="Edit"
-//                             onClick={(event) => editvalue(event, res.key)}
-//                         />
-//                     )}
-//                     <input
-//                         type="submit"
-//                         className="btn btn-danger"
-//                         value="Delete"
-//                         onClick={(event) => deletevalue(event, res.key)}
-//                     />
-//                 </form>
-//             </td>
-//         </tr>
-//     ))}
-// </tbody>
-
-//         </table>
-//     </div>
-//     </div>
-//     </>
-// )
-// }
-
-// export default Content;
-
-
-
-
-
-
-

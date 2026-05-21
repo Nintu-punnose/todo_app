@@ -14,6 +14,15 @@ const Content = () => {
         setvalue(e.target.value);
     }
 
+    // Normalizes a stored item into { text, done }.
+    // Supports old data saved as a plain string AND new data saved as an object.
+    function normalize(raw) {
+        if (raw && typeof raw === 'object') {
+            return { text: raw.text ?? '', done: !!raw.done };
+        }
+        return { text: raw, done: false };
+    }
+
     function submitvalue() {
         if (!value.trim()) return;
         const options = {
@@ -22,7 +31,8 @@ const Content = () => {
                 'Content-Type': 'application/json'
             }
         };
-        axios.post(`${DB_URL}/todo.json`, JSON.stringify(value), options).then(() => {
+        const payload = { text: value, done: false };
+        axios.post(`${DB_URL}/todo.json`, JSON.stringify(payload), options).then(() => {
             console.log("success");
             setvalue('');
             fetchvalue();
@@ -35,7 +45,8 @@ const Content = () => {
                 var arr = [];
                 const fetchedData = response.data;
                 for (const key in fetchedData) {
-                    arr.push({ key: key, value: fetchedData[key] });
+                    const item = normalize(fetchedData[key]);
+                    arr.push({ key: key, text: item.text, done: item.done });
                 }
                 setresult(arr);
             })
@@ -48,17 +59,34 @@ const Content = () => {
         event.preventDefault();
         axios.delete(`${DB_URL}/todo/${key}.json`).then(() => {
             console.log("delete successfully");
-            const updatedResult = result.filter(value => value.key !== key);
+            const updatedResult = result.filter(item => item.key !== key);
             setresult(updatedResult);
         });
+    }
+
+    function toggleDone(event, key) {
+        event.preventDefault();
+        const target = result.find(item => item.key === key);
+        if (!target) return;
+        const newDone = !target.done;
+        const payload = { text: target.text, done: newDone };
+        axios.put(`${DB_URL}/todo/${key}.json`, JSON.stringify(payload))
+            .then(() => {
+                const updatedResult = result.map((item) =>
+                    item.key === key ? { ...item, done: newDone } : item
+                );
+                setresult(updatedResult);
+            })
+            .catch((error) => {
+                console.error("Error toggling task:", error);
+            });
     }
 
     function editvalue(event, key) {
         event.preventDefault();
         let itemvalue = result.find(item => item.key === key);
         edititem(itemvalue);
-        changedvalue(itemvalue.value);
-        setvalue(itemvalue.value);
+        changedvalue(itemvalue.text);
     }
 
     function savechange(e) {
@@ -67,10 +95,12 @@ const Content = () => {
 
     function savevalue(event, key) {
         event.preventDefault();
-        axios.put(`${DB_URL}/todo/${key}.json`, JSON.stringify(changevalue))
+        const target = result.find(item => item.key === key);
+        const payload = { text: changevalue, done: target ? target.done : false };
+        axios.put(`${DB_URL}/todo/${key}.json`, JSON.stringify(payload))
             .then(() => {
                 const updatedResult = result.map((item) =>
-                    item.key === key ? { ...item, value: changevalue } : item
+                    item.key === key ? { ...item, text: changevalue } : item
                 );
                 setresult(updatedResult);
                 edititem('');
@@ -84,6 +114,8 @@ const Content = () => {
     useEffect(() => {
         fetchvalue();
     }, []);
+
+    const completedCount = result.filter(item => item.done).length;
 
     return (
         <div className="todo-page">
@@ -167,8 +199,9 @@ const Content = () => {
                 }
                 .todo-table tbody tr:last-child td { border-bottom: none; }
                 .todo-table tbody tr:hover { background: #fafbfd; }
-                .col-num { width: 70px; text-align: center; color: #8a97ac !important; font-weight: 600; }
-                .col-action { width: 200px; }
+                .col-status { width: 56px; text-align: center; }
+                .col-num { width: 64px; text-align: center; color: #8a97ac !important; font-weight: 600; }
+                .col-action { width: 230px; }
                 .action-cell { display: flex; gap: 8px; justify-content: flex-start; }
                 .action-cell .btn { min-width: 78px; font-size: 14px; font-weight: 500; }
                 .edit-input {
@@ -186,12 +219,39 @@ const Content = () => {
                     color: #8a97ac;
                     font-size: 15px;
                 }
+                .task-check {
+                    width: 20px;
+                    height: 20px;
+                    cursor: pointer;
+                    accent-color: #2e9e6b;
+                }
+                .task-done .task-text {
+                    text-decoration: line-through;
+                    color: #9aa6ba;
+                }
+                .badge-done {
+                    display: inline-block;
+                    background: #e6f6ee;
+                    color: #2e9e6b;
+                    font-size: 11px;
+                    font-weight: 600;
+                    padding: 3px 9px;
+                    border-radius: 20px;
+                    margin-left: 8px;
+                    vertical-align: middle;
+                    text-transform: uppercase;
+                    letter-spacing: 0.4px;
+                }
             `}</style>
 
             <div className="todo-container">
                 <div className="todo-head">
                     <h1>To-Do List</h1>
-                    <p>{result.length === 0 ? 'No tasks yet' : `${result.length} task${result.length > 1 ? 's' : ''} pending`}</p>
+                    <p>
+                        {result.length === 0
+                            ? 'No tasks yet'
+                            : `${completedCount} of ${result.length} completed`}
+                    </p>
                 </div>
 
                 <div className="todo-body">
@@ -210,6 +270,7 @@ const Content = () => {
                     <table className="todo-table">
                         <thead>
                             <tr>
+                                <th className="col-status">Done</th>
                                 <th className="col-num">Si No.</th>
                                 <th>Task</th>
                                 <th className="col-action">Action</th>
@@ -218,11 +279,19 @@ const Content = () => {
                         <tbody>
                             {result.length === 0 ? (
                                 <tr>
-                                    <td colSpan="3" className="empty-state">Your task list is empty. Add a task to get started.</td>
+                                    <td colSpan="4" className="empty-state">Your task list is empty. Add a task to get started.</td>
                                 </tr>
                             ) : (
                                 result.map((item, index) => (
-                                    <tr key={item.key}>
+                                    <tr key={item.key} className={item.done ? 'task-done' : ''}>
+                                        <td className="col-status">
+                                            <input
+                                                type="checkbox"
+                                                className="task-check"
+                                                checked={item.done}
+                                                onChange={(e) => toggleDone(e, item.key)}
+                                            />
+                                        </td>
                                         <td className="col-num">{index + 1}</td>
                                         {edit.key === item.key ? (
                                             <td>
@@ -235,7 +304,10 @@ const Content = () => {
                                                 />
                                             </td>
                                         ) : (
-                                            <td>{item.value}</td>
+                                            <td>
+                                                <span className="task-text">{item.text}</span>
+                                                {item.done && <span className="badge-done">Completed</span>}
+                                            </td>
                                         )}
                                         <td className="col-action">
                                             <div className="action-cell">
